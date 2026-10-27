@@ -20,6 +20,23 @@ Notable user-facing changes are recorded here. Phantom follows [Semantic Version
   `phantom_secrets_expiry_check` tool with `days: 0` are documented to list
   only secrets that have already expired, but they also listed a secret that
   expires later today. Such a secret now appears from `--days 1` on.
+### Fixed (validation history was never recorded)
+
+- `phantom validate history`, MCP `phantom_validation_history` and the last
+  run shown by `phantom validate schedule --status` stayed empty forever:
+  `phantom validate --check-all` and MCP `phantom_validate_all` never
+  recorded a run. Each run that checks values is now recorded (counts only,
+  no names or values). A failed write is reported and never changes the
+  verdict. A run the lifecycle gate refused entirely sends nothing and is not
+  recorded.
+- `phantom validate schedule 6h --json` printed the schedule as a string
+  holding JSON (`{"schedule":"{\"interval\":21600}"}`). It now prints the
+  same value as `--status --json` (`{"schedule":{"interval":21600}}`).
+- `phantom validate --check-all --json` on an empty vault printed a
+  hand-written object without `generated_at` and `refused`. It now prints
+  the same report shape as every other run.
+- Setting a schedule no longer says `--status` starts a background daemon.
+  Nothing runs validation on the schedule by itself.
 
 ### Fixed (monthly rotation schedules follow calendar months)
 
