@@ -14,6 +14,12 @@ Notable user-facing changes are recorded here. Phantom follows [Semantic Version
   now print the real UTC calendar date.
 - `phantom validate history` always ended with "Use --last N to see more",
   even when every run was shown. It now says "Showing all N run(s)" then.
+### Fixed (expiry check at 0 days listed unexpired secrets)
+
+- `phantom secrets-expiring-soon --days 0` and the MCP
+  `phantom_secrets_expiry_check` tool with `days: 0` are documented to list
+  only secrets that have already expired, but they also listed a secret that
+  expires later today. Such a secret now appears from `--days 1` on.
 
 ### Fixed (monthly rotation schedules follow calendar months)
 
