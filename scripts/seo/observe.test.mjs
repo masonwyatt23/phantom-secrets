@@ -378,6 +378,33 @@ test("a complete public fixture produces a deterministic, sanitized passing repo
   });
 });
 
+test("a missing page title is reported without interrupting observation", async () => {
+  await withFixtureServer(
+    async ({ options }) => {
+      const report = await observeProduction(options);
+      assert.equal(report.verdict, "FAIL");
+      assert.deepEqual(report.counts, { fail: 1, warn: 0 });
+      assert.deepEqual(report.findings, [{
+        severity: "fail",
+        code: "title_missing",
+        message: "Page title is missing",
+        route: "/docs",
+      }]);
+      const page = report.technical.public_routes.find((route) => route.route === "/docs");
+      assert.equal(page.status, 200);
+      assert.equal(page.title, null);
+      assert.equal(report.technical.public_routes.length, publicPaths.size);
+      assert.match(renderSummary(report), /FAIL title_missing\*\* \(\/docs\): Page title is missing/);
+    },
+    {
+      "/docs": (response, origin) => {
+        response.setHeader("content-type", "text/html");
+        response.end(html(origin, "/docs").replace("<title>/docs — Phantom</title>", ""));
+      },
+    },
+  );
+});
+
 test("the GitHub job summary is deterministically capped with an omitted count", () => {
   const findingCount = 500;
   const report = {
