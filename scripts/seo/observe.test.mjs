@@ -127,10 +127,11 @@ function html(origin, route, options = {}) {
       ? `${jsonLd("TechArticle")}${jsonLd("BreadcrumbList")}`
       : "";
   const canonical = options.canonical ?? `${origin}${route}`;
+  const description = options.description ?? `Description for ${route}`;
   const structured = options.invalidJsonLd
     ? '<script type="application/ld+json">{not-json}</script>'
     : schema;
-  return `<!doctype html><html><head><title>${route} — Phantom</title><meta name="description" content="Description for ${route}"><link rel="canonical" href="${canonical}">${structured}</head><body><h1>Page ${route}</h1></body></html>`;
+  return `<!doctype html><html><head><title>${route} — Phantom</title><meta name="description" content="${description}"><link rel="canonical" href="${canonical}">${structured}</head><body><h1>Page ${route}</h1></body></html>`;
 }
 
 async function withFixtureServer(action, overrides = {}) {
@@ -376,6 +377,30 @@ test("a complete public fixture produces a deterministic, sanitized passing repo
     assert.ok(requests.length >= publicPaths.size + 6);
     assert.match(renderSummary(first), /does not edit content, publish, deploy, contact people/);
   });
+});
+
+test("an empty meta description fails while a populated description passes", async () => {
+  await withFixtureServer(
+    async ({ options }) => {
+      const report = await observeProduction(options);
+      const empty = report.technical.public_routes.find((route) => route.route === "/docs");
+      const populated = report.technical.public_routes.find((route) => route.route === "/security");
+
+      assert.equal(empty.description, null);
+      assert.equal(populated.description, "Description for /security");
+      assert.deepEqual(report.findings.filter((finding) => finding.code === "description_missing"), [
+        { severity: "fail", code: "description_missing", message: "Meta description is missing", route: "/docs" },
+      ]);
+      assert.equal(report.verdict, "FAIL");
+      assert.deepEqual(report.counts, { fail: 1, warn: 0 });
+    },
+    {
+      "/docs": (response, origin) => {
+        response.setHeader("content-type", "text/html");
+        response.end(html(origin, "/docs", { description: "" }));
+      },
+    },
+  );
 });
 
 test("the GitHub job summary is deterministically capped with an omitted count", () => {
