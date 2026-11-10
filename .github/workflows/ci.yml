@@ -374,6 +374,7 @@ jobs:
           scripts/installer-staging-prefix.test.mjs
           scripts/installer-staging-prefixes.test.mjs
           scripts/installer-staging-setup-failure.test.mjs
+          scripts/installer-unwritable-parent.test.mjs
           scripts/installer-staging-spaced-home.test.mjs
           scripts/installer-staging-spaced-install-parent.test.mjs
           scripts/installer-staging-spaced-parent-offline.test.mjs
