@@ -2,7 +2,7 @@
 const candidateVersion = require("../package.json").version;
 const assert = require("assert");
 const crypto = require("crypto");
-const { spawnSync } = require("child_process");
+const { execFileSync, spawnSync } = require("child_process");
 const {
   chmodSync,
   copyFileSync,
@@ -170,6 +170,55 @@ try {
 }
 
 (async () => {
+  for (const manifest of ["{broken json", "null", JSON.stringify({ version: candidateVersion, sha256: "bad" })]) {
+    const cacheDir = mkdtempSync(join(tmpdir(), "phantom-mcp-malformed-cache-"));
+    try {
+      const paths = pathSet(cacheDir);
+      writePrivateFile(paths.binaryPath, "untrusted binary", 0o700);
+      writePrivateFile(paths.manifestPath, manifest, 0o600);
+      let executions = 0;
+      let downloads = 0;
+      const downloadFailure = new Error("simulated download failure");
+      await assert.rejects(ensureBinary({
+        cacheDir,
+        execFileSyncImpl: () => { executions += 1; },
+        downloadImpl: async (url) => {
+          downloads += 1;
+          assert.ok(url.endsWith(".sha256"));
+          throw downloadFailure;
+        },
+      }), (error) => error === downloadFailure);
+      assert.strictEqual(executions, 0, "malformed cache must never execute");
+      assert.strictEqual(downloads, 1, "fallback must first fetch the checksum");
+    } finally {
+      rmSync(cacheDir, { recursive: true, force: true });
+    }
+  }
+
+  {
+    const cacheDir = mkdtempSync(join(tmpdir(), "phantom mcp cache with spaces "));
+    try {
+      const paths = pathSet(cacheDir);
+      writePair(paths.binaryPath, paths.manifestPath,
+        `process.stdout.write(${JSON.stringify(`phantom-mcp ${candidateVersion}\n`)});\n`);
+      let executions = 0;
+      const resolved = await ensureBinary({
+        cacheDir,
+        execFileSyncImpl: (binaryPath, args, options) => {
+          executions += 1;
+          assert.strictEqual(binaryPath, paths.binaryPath);
+          assert.deepStrictEqual(args, ["--version"]);
+          return execFileSync(process.execPath, [binaryPath, ...args], options);
+        },
+        downloadImpl: async () => { throw new Error("valid cache must not access the network"); },
+      });
+      assert.strictEqual(resolved, paths.binaryPath);
+      assert.strictEqual(executions, 1);
+    } finally {
+      rmSync(cacheDir, { recursive: true, force: true });
+    }
+  }
+
   for (const [description, manifest] of [["malformed", '{"version":'], ["empty", ""]]) {
     const cacheDir = mkdtempSync(join(tmpdir(), "phantom-mcp-invalid-cache-"));
     try {
